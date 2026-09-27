@@ -1,4 +1,4 @@
-import type { Relation, RelationType, Stratum } from '@/types'
+import type { Relation, RelationStatus, RelationType, Stratum } from '@/types'
 
 export interface GraphEdge {
   id: string
@@ -6,6 +6,8 @@ export interface GraphEdge {
   to: string
   type: RelationType
   basis: string
+  /** 核对状态（待核对/已确认/存疑），用于按状态着色 */
+  status: RelationStatus
   /** 是否处于被检测出的环路中 */
   inCycle: boolean
 }
@@ -60,6 +62,7 @@ export function buildGraph(strata: Stratum[], relations: Relation[]): DirectedGr
         to,
         type: relation.type,
         basis: relation.basis,
+        status: relation.status,
         inCycle: false
       })
     })

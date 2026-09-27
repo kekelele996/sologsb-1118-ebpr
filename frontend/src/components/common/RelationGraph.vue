@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import type { RelationStatus } from '@/types'
 import type { GraphEdge, GraphNode } from '@/utils/graph'
 
 const props = withDefaults(
@@ -20,10 +21,11 @@ const emit = defineEmits<{
   (event: 'select', nodeId: string): void
 }>()
 
-const EDGE_COLORS: Record<string, string> = {
-  叠压: '#2f6f8f',
-  打破: '#c0392b',
-  共存: '#1f8a70'
+/** 边按核对状态着色：待核对=琥珀虚线，已确认=绿色实线，存疑=红色点线 */
+const STATUS_STYLES: Record<RelationStatus, { color: string; dash: string }> = {
+  待核对: { color: '#c9a227', dash: '6 4' },
+  已确认: { color: '#1f8a70', dash: '0' },
+  存疑: { color: '#c0392b', dash: '2 3' }
 }
 
 const TYPE_FILLS: Record<string, string> = {
@@ -152,9 +154,9 @@ function edgeOpacity(edge: GraphEdge): number {
           :y1="item.y1"
           :x2="item.x2"
           :y2="item.y2"
-          :stroke="item.edge.inCycle ? '#c0392b' : EDGE_COLORS[item.edge.type] ?? '#8a97a3'"
+          :stroke="item.edge.inCycle ? '#c0392b' : STATUS_STYLES[item.edge.status]?.color ?? '#8a97a3'"
           :stroke-width="item.edge.inCycle ? 2.6 : 1.8"
-          :stroke-dasharray="item.edge.inCycle ? '7 4' : '0'"
+          :stroke-dasharray="item.edge.inCycle ? '7 4' : STATUS_STYLES[item.edge.status]?.dash ?? '0'"
           :marker-end="item.edge.inCycle ? 'url(#rg-arrow-cycle)' : 'url(#rg-arrow)'"
         />
         <text :x="item.labelX" :y="item.labelY" font-size="10" text-anchor="middle" fill="#6b7b8c">
@@ -202,8 +204,8 @@ function edgeOpacity(edge: GraphEdge): number {
       </text>
     </svg>
     <div class="legend">
-      <span v-for="(color, type) in EDGE_COLORS" :key="type">
-        <i :style="{ background: color }" />{{ type }}
+      <span v-for="(style, status) in STATUS_STYLES" :key="status">
+        <i :style="{ background: style.color }" />{{ status }}（{{ style.dash === '0' ? '实线' : style.dash === '2 3' ? '点线' : '虚线' }}）
       </span>
       <span><i class="cycle" />环路冲突</span>
       <span class="muted">拖动节点可调整布局，点击节点高亮直接关系</span>

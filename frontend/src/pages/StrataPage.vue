@@ -162,8 +162,13 @@ async function submit(): Promise<void> {
     date: form.date,
     drawingNo: form.drawingNo.trim()
   }
+  const reverted = relationState.relations.filter(
+    (item) => item.status === '已确认' && (item.unitAId === row.id || item.unitBId === row.id)
+  ).length
   await stratumStore.getState().save(row)
-  if (isDepthInverted(row)) {
+  if (reverted > 0) {
+    ElMessage.warning(`地层单位 ${row.code} 已保存，${reverted} 条涉及该单位的已确认关系退回待核对`)
+  } else if (isDepthInverted(row)) {
     ElMessage.warning(`已保存，但「${row.code}」上界深度大于下界，层序倒置需复核`)
   } else {
     ElMessage.success(`地层单位 ${row.code} 已保存（厚 ${stratumThickness(row)} m）`)

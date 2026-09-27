@@ -4,7 +4,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Artifact, Relation, Stratum, Trench } from '@/types'
 
 /** IndexedDB 数据结构版本号 */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export interface MetaRow {
   key: string
@@ -29,7 +29,7 @@ class TrenchLogDb extends Dexie {
       meta: 'key'
     })
     // v2：地层单位新增「开口层位」字段，迁移时为历史数据补齐默认值
-    this.version(SCHEMA_VERSION)
+    this.version(2)
       .stores({
         trenches: 'id, code, area, backfilled',
         strata: 'id, trenchId, code, type, topDepth',
@@ -47,6 +47,34 @@ class TrenchLogDb extends Dexie {
             }
             if (!Array.isArray(stratum.inclusions)) {
               stratum.inclusions = []
+            }
+          })
+      })
+    // v3：层位关系新增核对状态（待核对/已确认/存疑），迁移时历史关系一律记为「待核对」
+    this.version(SCHEMA_VERSION)
+      .stores({
+        trenches: 'id, code, area, backfilled',
+        strata: 'id, trenchId, code, type, topDepth',
+        artifacts: 'id, stratumId, code, category, date',
+        relations: 'id, unitAId, unitBId, type, basis, status',
+        meta: 'key'
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table<Relation, string>('relations')
+          .toCollection()
+          .modify((relation) => {
+            if (!relation.status) {
+              relation.status = '待核对'
+            }
+            if (typeof relation.reviewer !== 'string') {
+              relation.reviewer = ''
+            }
+            if (typeof relation.reviewDate !== 'string') {
+              relation.reviewDate = ''
+            }
+            if (typeof relation.doubtReason !== 'string') {
+              relation.doubtReason = ''
             }
           })
       })
@@ -219,7 +247,11 @@ export async function seedDemoData(): Promise<void> {
       unitBId: 'st_0501_l2',
       basis: '剖面观察',
       recorder: '方铭',
-      note: 'H12 开口于第②层下，打破 L02'
+      note: 'H12 开口于第②层下，打破 L02',
+      status: '待核对',
+      reviewer: '',
+      reviewDate: '',
+      doubtReason: ''
     },
     {
       id: 'rl_002',
@@ -228,7 +260,11 @@ export async function seedDemoData(): Promise<void> {
       unitBId: 'st_0501_l2',
       basis: '剖面观察',
       recorder: '方铭',
-      note: 'L01 叠压 L02，界面清晰'
+      note: 'L01 叠压 L02，界面清晰',
+      status: '已确认',
+      reviewer: '祁野',
+      reviewDate: today,
+      doubtReason: ''
     }
   ])
 }

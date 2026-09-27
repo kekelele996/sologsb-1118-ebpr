@@ -4,5 +4,5 @@ export { UNIT_TYPES, INCLUSIONS, stratumThickness, isDepthInverted, isCodeDuplic
 export type { Stratum, UnitType, Inclusion } from './stratum'
 export { ARTIFACT_CATEGORIES, COMPLETENESS } from './artifact'
 export type { Artifact, ArtifactCategory, Completeness } from './artifact'
-export { RELATION_TYPES, RELATION_BASES } from './relation'
-export type { Relation, RelationType, RelationBasis } from './relation'
+export { RELATION_TYPES, RELATION_BASES, RELATION_STATUSES, RELATION_STATUS_TAGS } from './relation'
+export type { Relation, RelationType, RelationBasis, RelationStatus } from './relation'
