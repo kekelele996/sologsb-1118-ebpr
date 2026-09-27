@@ -2,6 +2,12 @@ import { createStore } from 'zustand/vanilla'
 import type { Relation } from '@/types'
 import { db, syncAll, syncDelete, syncPut } from '@/hooks/usePersistentStore'
 
+export interface RelationReviewPatch {
+  reviewer: string
+  reviewDate: string
+  doubtReason: string
+}
+
 export interface RelationState {
   relations: Relation[]
   loaded: boolean
@@ -10,6 +16,10 @@ export interface RelationState {
   save: (relation: Relation) => Promise<void>
   remove: (id: string) => Promise<void>
   removeByStratum: (stratumId: string) => Promise<void>
+  /** 复核：确认（填复核人与日期）或存疑（填原因） */
+  review: (id: string, status: '已确认' | '存疑', patch: RelationReviewPatch) => Promise<void>
+  /** 地层单位保存后，其参与的「已确认」关系退回待核对；返回退回条数 */
+  resetConfirmedByStrata: (stratumIds: string[]) => Promise<number>
 }
 
 export const relationStore = createStore<RelationState>((set, get) => ({
@@ -32,5 +42,29 @@ export const relationStore = createStore<RelationState>((set, get) => ({
     const targets = get().relations.filter((item) => item.unitAId === stratumId || item.unitBId === stratumId)
     await Promise.all(targets.map((item) => syncDelete<Relation>(db.relations, item.id)))
     await get().hydrate()
+  },
+  review: async (id, status, patch) => {
+    const target = get().relations.find((item) => item.id === id)
+    if (!target) return
+    const next: Relation =
+      status === '已确认'
+        ? { ...target, status, reviewer: patch.reviewer, reviewDate: patch.reviewDate, doubtReason: '' }
+        : { ...target, status, doubtReason: patch.doubtReason, reviewer: '', reviewDate: '' }
+    await syncPut<Relation>(db.relations, next)
+    await get().hydrate()
+  },
+  resetConfirmedByStrata: async (stratumIds) => {
+    if (stratumIds.length === 0) return 0
+    const targets = get().relations.filter(
+      (item) =>
+        item.status === '已确认' && (stratumIds.includes(item.unitAId) || stratumIds.includes(item.unitBId))
+    )
+    await Promise.all(
+      targets.map((item) =>
+        syncPut<Relation>(db.relations, { ...item, status: '待核对', reviewer: '', reviewDate: '' })
+      )
+    )
+    if (targets.length > 0) await get().hydrate()
+    return targets.length
   }
 }))

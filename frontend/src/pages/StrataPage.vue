@@ -162,11 +162,14 @@ async function submit(): Promise<void> {
     date: form.date,
     drawingNo: form.drawingNo.trim()
   }
-  await stratumStore.getState().save(row)
+  const resetCount = await stratumStore.getState().save(row)
   if (isDepthInverted(row)) {
     ElMessage.warning(`已保存，但「${row.code}」上界深度大于下界，层序倒置需复核`)
   } else {
     ElMessage.success(`地层单位 ${row.code} 已保存（厚 ${stratumThickness(row)} m）`)
+  }
+  if (resetCount > 0) {
+    ElMessage.warning(`该单位参与的 ${resetCount} 条已确认层位关系已退回「待核对」，请重新复核`)
   }
   dialogVisible.value = false
 }
@@ -190,8 +193,11 @@ async function applyBatchType(): Promise<void> {
     ElMessage.warning('请先勾选要调整的单位')
     return
   }
-  await stratumStore.getState().bulkSetType(selectedIds.value, batchType.value)
+  const resetCount = await stratumStore.getState().bulkSetType(selectedIds.value, batchType.value)
   ElMessage.success(`已把 ${selectedIds.value.length} 个单位的类型调整为「${batchType.value}」`)
+  if (resetCount > 0) {
+    ElMessage.warning(`涉及单位参与的 ${resetCount} 条已确认层位关系已退回「待核对」，请重新复核`)
+  }
 }
 </script>
 

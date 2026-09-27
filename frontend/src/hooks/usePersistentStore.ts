@@ -2,9 +2,10 @@ import { onUnmounted, reactive } from 'vue'
 import type { StoreApi } from 'zustand/vanilla'
 import Dexie, { type Table } from 'dexie'
 import type { Artifact, Relation, Stratum, Trench } from '@/types'
+import { RELATION_STATUSES } from '@/types'
 
 /** IndexedDB 数据结构版本号 */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export interface MetaRow {
   key: string
@@ -48,6 +49,27 @@ class TrenchLogDb extends Dexie {
             if (!Array.isArray(stratum.inclusions)) {
               stratum.inclusions = []
             }
+          })
+      })
+    // v3：层位关系新增复核状态（待核对/已确认/存疑）与复核人、复核日期、存疑原因字段，
+    // 历史关系一律按「待核对」处理，等待回驻地复核
+    this.version(SCHEMA_VERSION)
+      .stores({
+        trenches: 'id, code, area, backfilled',
+        strata: 'id, trenchId, code, type, topDepth',
+        artifacts: 'id, stratumId, code, category, date',
+        relations: 'id, unitAId, unitBId, type, basis, status',
+        meta: 'key'
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table<Relation, string>('relations')
+          .toCollection()
+          .modify((relation) => {
+            relation.status = RELATION_STATUSES.includes(relation.status) ? relation.status : '待核对'
+            relation.reviewer = relation.reviewer ?? ''
+            relation.reviewDate = relation.reviewDate ?? ''
+            relation.doubtReason = relation.doubtReason ?? ''
           })
       })
   }
@@ -219,7 +241,11 @@ export async function seedDemoData(): Promise<void> {
       unitBId: 'st_0501_l2',
       basis: '剖面观察',
       recorder: '方铭',
-      note: 'H12 开口于第②层下，打破 L02'
+      note: 'H12 开口于第②层下，打破 L02',
+      status: '待核对',
+      reviewer: '',
+      reviewDate: '',
+      doubtReason: ''
     },
     {
       id: 'rl_002',
@@ -228,7 +254,11 @@ export async function seedDemoData(): Promise<void> {
       unitBId: 'st_0501_l2',
       basis: '剖面观察',
       recorder: '方铭',
-      note: 'L01 叠压 L02，界面清晰'
+      note: 'L01 叠压 L02，界面清晰',
+      status: '已确认',
+      reviewer: '祁野',
+      reviewDate: today,
+      doubtReason: ''
     }
   ])
 }

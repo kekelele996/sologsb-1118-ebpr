@@ -63,6 +63,14 @@ function relationsOf(trenchId: string): number {
   return relationState.relations.filter((item) => unitIds.includes(item.unitAId) || unitIds.includes(item.unitBId)).length
 }
 
+/** 待核对关系总数（两端任一单位属于该探方即计入） */
+function pendingRelationsOf(trenchId: string): number {
+  const unitIds = stratumState.strata.filter((item) => item.trenchId === trenchId).map((item) => item.id)
+  return relationState.relations.filter(
+    (item) => item.status === '待核对' && (unitIds.includes(item.unitAId) || unitIds.includes(item.unitBId))
+  ).length
+}
+
 /** 发掘进度状态 */
 function progressOf(trench: Trench): { label: string; type: 'success' | 'warning' | 'info' } {
   if (trench.backfilled) return { label: '已回填', type: 'info' }
@@ -154,7 +162,7 @@ async function remove(trench: Trench): Promise<void> {
       <div>
         <h2 class="page-title">探方清单</h2>
         <p class="page-sub">
-          按「发掘区-探方号」校验唯一性；卡片展示地层单位数、出土物件数、层位关系数与发掘进度状态。
+          按「发掘区-探方号」校验唯一性；卡片展示地层单位数、出土物件数、层位关系与待核对关系数，以及发掘进度状态。
         </p>
       </div>
       <el-button type="primary" @click="openCreate">
@@ -179,6 +187,10 @@ async function remove(trench: Trench): Promise<void> {
           <div class="metric"><span>地层单位</span><b>{{ unitsOf(trench.id) }}</b></div>
           <div class="metric"><span>出土物件数</span><b>{{ artifactsOf(trench.id) }}</b></div>
           <div class="metric"><span>层位关系</span><b>{{ relationsOf(trench.id) }}</b></div>
+          <div class="metric">
+            <span>待核对关系</span>
+            <b :class="{ 'pending-count': pendingRelationsOf(trench.id) > 0 }">{{ pendingRelationsOf(trench.id) }}</b>
+          </div>
           <div class="metric"><span>规格</span><b>{{ trench.size }}</b></div>
         </div>
         <el-descriptions :column="1" size="small" border class="desc">
@@ -298,6 +310,9 @@ async function remove(trench: Trench): Promise<void> {
 .metric b {
   font-size: 14px;
   color: #3c2f1f;
+}
+.metric b.pending-count {
+  color: #b2620e;
 }
 .desc {
   margin-bottom: 12px;

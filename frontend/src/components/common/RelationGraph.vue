@@ -20,18 +20,24 @@ const emit = defineEmits<{
   (event: 'select', nodeId: string): void
 }>()
 
-const EDGE_COLORS: Record<string, string> = {
-  叠压: '#2f6f8f',
-  打破: '#c0392b',
-  共存: '#1f8a70'
-}
-
 const TYPE_FILLS: Record<string, string> = {
   地层: '#2f6f8f',
   灰坑: '#8a5a2b',
   房址: '#8e6bbf',
   沟: '#1f8a70',
   墓葬: '#c0392b'
+}
+
+/** 边按复核状态区分：待核对虚线、已确认实线、存疑点线 */
+const STATUS_STYLES: Record<string, { stroke: string; dasharray: string; width: number }> = {
+  待核对: { stroke: '#8a97a3', dasharray: '6 4', width: 1.8 },
+  已确认: { stroke: '#1f8a70', dasharray: '0', width: 2.2 },
+  存疑: { stroke: '#d9822b', dasharray: '2 4', width: 2 }
+}
+
+function edgeStyle(edge: GraphEdge): { stroke: string; dasharray: string; width: number } {
+  if (edge.inCycle) return { stroke: '#c0392b', dasharray: '7 4', width: 2.6 }
+  return STATUS_STYLES[edge.status] ?? STATUS_STYLES['待核对']
 }
 
 const positions = reactive<Record<string, { x: number; y: number }>>({})
@@ -152,11 +158,13 @@ function edgeOpacity(edge: GraphEdge): number {
           :y1="item.y1"
           :x2="item.x2"
           :y2="item.y2"
-          :stroke="item.edge.inCycle ? '#c0392b' : EDGE_COLORS[item.edge.type] ?? '#8a97a3'"
-          :stroke-width="item.edge.inCycle ? 2.6 : 1.8"
-          :stroke-dasharray="item.edge.inCycle ? '7 4' : '0'"
+          :stroke="edgeStyle(item.edge).stroke"
+          :stroke-width="edgeStyle(item.edge).width"
+          :stroke-dasharray="edgeStyle(item.edge).dasharray"
           :marker-end="item.edge.inCycle ? 'url(#rg-arrow-cycle)' : 'url(#rg-arrow)'"
-        />
+        >
+          <title>{{ item.edge.type }}（{{ item.edge.status }}）</title>
+        </line>
         <text :x="item.labelX" :y="item.labelY" font-size="10" text-anchor="middle" fill="#6b7b8c">
           {{ item.edge.type }}
         </text>
@@ -202,11 +210,11 @@ function edgeOpacity(edge: GraphEdge): number {
       </text>
     </svg>
     <div class="legend">
-      <span v-for="(color, type) in EDGE_COLORS" :key="type">
-        <i :style="{ background: color }" />{{ type }}
-      </span>
+      <span><i class="line pending" />待核对</span>
+      <span><i class="line confirmed" />已确认</span>
+      <span><i class="line doubted" />存疑</span>
       <span><i class="cycle" />环路冲突</span>
-      <span class="muted">拖动节点可调整布局，点击节点高亮直接关系</span>
+      <span class="muted">边线按复核状态区分，拖动节点可调整布局，点击节点高亮直接关系</span>
     </div>
   </div>
 </template>
@@ -241,6 +249,20 @@ svg {
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+}
+.legend i.line {
+  width: 18px;
+  height: 0;
+  border-radius: 0;
+}
+.legend i.line.pending {
+  border-top: 2px dashed #8a97a3;
+}
+.legend i.line.confirmed {
+  border-top: 2px solid #1f8a70;
+}
+.legend i.line.doubted {
+  border-top: 2px dotted #d9822b;
 }
 .legend i.cycle {
   background: repeating-linear-gradient(90deg, #c0392b 0 4px, transparent 4px 7px);
